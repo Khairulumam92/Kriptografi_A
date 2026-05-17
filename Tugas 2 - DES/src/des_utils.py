@@ -57,3 +57,27 @@ def validate_hex_data(value: str, label: str = "Data") -> str:
     if len(cleaned) == 0 or len(cleaned) % 2 != 0 or not HEX_RE.fullmatch(cleaned):
         raise ValueError(f"{label} harus heksadesimal valid dengan panjang genap.")
     return cleaned.upper()
+
+
+def text_key_to_bytes(key_text: str) -> bytes:
+    """
+    Ubah kunci ASCII menjadi 8 byte (64-bit) untuk DES.
+
+    - Jika panjang <= 8 byte: padding NUL (0x00) di kanan.
+    - Jika panjang > 8 byte: ambil 8 byte pertama (sesuai contoh KAMPUSUMM -> KAMPUSUM).
+    """
+    raw = key_text.encode("utf-8")
+    if len(raw) > 8:
+        return raw[:8]
+    return raw.ljust(8, b"\x00")
+
+
+def text_key_to_hex_64(key_text: str) -> str:
+    """Kunci ASCII menjadi 16 karakter hex (64-bit)."""
+    return text_key_to_bytes(key_text).hex().upper()
+
+
+def bytes_to_binary_groups(data: bytes, group: int = 8) -> str:
+    """Format byte menjadi string biner per grup (mis. per byte)."""
+    bits = "".join(format(b, "08b") for b in data)
+    return " ".join(bits[i : i + group] for i in range(0, len(bits), group))

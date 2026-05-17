@@ -1,54 +1,76 @@
 # Implementasi DES (Data Encryption Standard)
 
-Project ini berisi implementasi algoritma DES secara manual (tanpa library DES siap pakai), berbasis terminal/console, untuk kebutuhan tugas kriptografi.
+Project tugas kriptografi: implementasi **DES standar 64-bit** secara **manual** (tanpa `Crypto.Cipher.DES` pada proses utama), dengan output proses per ronde untuk laporan dan presentasi.
 
 ## Struktur Project
 
-- `src/des_core.py` - komponen inti DES (IP, FP, E, S-Box, P, key schedule, 16 ronde Feistel)
-- `src/des_utils.py` - utilitas konversi data, pemecahan blok 64-bit, dan padding/unpadding
-- `src/des_cli.py` - antarmuka terminal untuk enkripsi/dekripsi
-- `docs/laporan-des.md` - laporan algoritma DES langkah demi langkah
+| Berkas | Fungsi |
+|--------|--------|
+| `src/des_core.py` | IP, FP, E, S-Box, P, key schedule, 16 ronde Feistel, enkripsi/dekripsi |
+| `src/des_utils.py` | Konversi hex/text, PKCS#7 padding, kunci ASCII → 64-bit |
+| `src/des_verbose.py` | Formatter output biner/hex per ronde |
+| `src/des_demo.py` | **Demo utama tugas** (plaintext/key ASCII + trace lengkap) |
+| `src/des_cli.py` | CLI enkripsi/dekripsi |
+| `docs/laporan-des.md` | Laporan akademik lengkap |
+| `test_vector_des.py` | Unit test + contoh `KHAIRULUMAM` / `KAMPUSUMM` |
 
-## Cara Menjalankan
+## Demo Tugas (Contoh Soal)
 
-Pastikan Python 3 tersedia.
+```powershell
+cd "Tugas 2 - DES"
+python src/des_demo.py
+```
 
-### 1) Enkripsi satu blok (input HEX)
+Data bawaan:
 
-```bash
+- **PLAINTEXT:** `KHAIRULUMAM` (11 byte → PKCS#7 → 16 byte = 2 blok DES)
+- **KEY:** `KAMPUSUMM` (9 byte ASCII → 8 byte pertama: `KAMPUSUM`)
+
+**Ciphertext referensi (ECB per blok, tanpa mode chaining):** `D5B57564844B76465927F24F34ACC6E6`
+
+Opsi:
+
+```powershell
+python src/des_demo.py --all-blocks-verbose
+```
+
+Menampilkan trace ronde untuk **semua** blok (output sangat panjang).
+
+## CLI
+
+Enkripsi teks + kunci ASCII:
+
+```powershell
+python src/des_cli.py encrypt --input-format text --key-format text --data "KHAIRULUMAM" --key "KAMPUSUMM" --verbose
+```
+
+Dekripsi:
+
+```powershell
+python src/des_cli.py decrypt --input-format text --key-format text --data D5B57564844B76465927F24F34ACC6E6 --key "KAMPUSUMM" --verbose
+```
+
+Vector standar FIPS (hex):
+
+```powershell
 python src/des_cli.py encrypt --input-format hex --data 0123456789ABCDEF --key 133457799BBCDFF1
 ```
 
-### 2) Dekripsi satu blok (input HEX)
+## Pengujian
 
-```bash
-python src/des_cli.py decrypt --input-format hex --data 85E813540F0AB405 --key 133457799BBCDFF1
+```powershell
+python -m unittest test_vector_des.py -v
 ```
 
-### 3) Enkripsi plaintext TEXT (multi-blok + padding)
+## Validasi Library (Opsional)
 
-```bash
-python src/des_cli.py encrypt --input-format text --data "Belajar DES di kelas kriptografi" --key 133457799BBCDFF1
+```powershell
+pip install -r requirements.txt
 ```
 
-### 4) Dekripsi ciphertext ke TEXT
+Demo membandingkan ciphertext dengan **PyCryptodome** hanya sebagai pembanding, bukan proses enkripsi utama.
 
-Gunakan ciphertext hasil enkripsi mode text:
+## Catatan Akademik
 
-```bash
-python src/des_cli.py decrypt --input-format text --data <CIPHERTEXT_HEX> --key 133457799BBCDFF1
-```
-
-### 5) Menampilkan proses internal ronde
-
-Tambahkan `--verbose` (ditampilkan untuk blok pertama):
-
-```bash
-python src/des_cli.py encrypt --input-format hex --data 0123456789ABCDEF --key 133457799BBCDFF1 --verbose
-```
-
-## Catatan
-
-- Key DES diinput sebagai 16 karakter hex (64-bit).
-- Untuk mode `hex`, data harus kelipatan 16 karakter hex (tiap 16 hex = 1 blok DES).
-- Untuk mode `text`, sistem memakai PKCS#7 padding pada ukuran blok 8 byte.
+- DES: blok 64-bit, kunci efektif 56-bit, 16 ronde Feistel.
+- Program ini **bukan** untuk produksi; DES sudah tidak aman untuk data modern (lihat `docs/laporan-des.md`).

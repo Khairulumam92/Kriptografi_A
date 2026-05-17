@@ -19,6 +19,7 @@ if __package__ in (None, ""):
     from src.des_utils import (
         chunk_hex_16,
         hex_blocks_to_unpadded_text,
+        text_key_to_hex_64,
         text_to_padded_hex_blocks,
         validate_hex_data,
     )
@@ -27,6 +28,7 @@ else:
     from .des_utils import (
         chunk_hex_16,
         hex_blocks_to_unpadded_text,
+        text_key_to_hex_64,
         text_to_padded_hex_blocks,
         validate_hex_data,
     )
@@ -36,12 +38,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Program DES berbasis terminal.")
     parser.add_argument("mode", choices=["encrypt", "decrypt"], help="Mode operasi.")
     parser.add_argument("--data", required=True, help="Data plaintext/ciphertext.")
-    parser.add_argument("--key", required=True, help="Key hex 16 karakter (64-bit).")
+    parser.add_argument("--key", required=True, help="Key (hex 16 karakter atau teks ASCII).")
     parser.add_argument(
         "--input-format",
         choices=["hex", "text"],
         default="hex",
         help="Format input data.",
+    )
+    parser.add_argument(
+        "--key-format",
+        choices=["hex", "text"],
+        default="hex",
+        help="Format key: hex (16 char) atau text (ASCII, 8 byte).",
     )
     parser.add_argument(
         "--verbose",
@@ -51,8 +59,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def encrypt_data(data: str, key_hex: str, input_format: str, verbose: bool) -> str:
-    key_hex = validate_hex_64(key_hex, "Key")
+def resolve_key_hex(key: str, key_format: str) -> str:
+    if key_format == "text":
+        return text_key_to_hex_64(key)
+    return validate_hex_64(key, "Key")
+
+
+def encrypt_data(
+    data: str,
+    key: str,
+    input_format: str,
+    verbose: bool,
+    key_format: str = "hex",
+) -> str:
+    key_hex = resolve_key_hex(key, key_format)
     if input_format == "text":
         blocks = text_to_padded_hex_blocks(data)
     else:
@@ -67,8 +87,14 @@ def encrypt_data(data: str, key_hex: str, input_format: str, verbose: bool) -> s
     return "".join(encrypted_blocks)
 
 
-def decrypt_data(data: str, key_hex: str, input_format: str, verbose: bool) -> str:
-    key_hex = validate_hex_64(key_hex, "Key")
+def decrypt_data(
+    data: str,
+    key: str,
+    input_format: str,
+    verbose: bool,
+    key_format: str = "hex",
+) -> str:
+    key_hex = resolve_key_hex(key, key_format)
     cipher_hex = validate_hex_data(data, "Ciphertext hex")
     if len(cipher_hex) % 16 != 0:
         raise ValueError("Ciphertext hex harus kelipatan 16 karakter (64-bit per blok).")
@@ -88,10 +114,14 @@ def main() -> None:
     args = parse_args()
     try:
         if args.mode == "encrypt":
-            result = encrypt_data(args.data, args.key, args.input_format, args.verbose)
+            result = encrypt_data(
+                args.data, args.key, args.input_format, args.verbose, args.key_format
+            )
             print(f"Ciphertext (HEX): {result}")
         else:
-            result = decrypt_data(args.data, args.key, args.input_format, args.verbose)
+            result = decrypt_data(
+                args.data, args.key, args.input_format, args.verbose, args.key_format
+            )
             if args.input_format == "text":
                 print(f"Plaintext (TEXT): {result}")
             else:

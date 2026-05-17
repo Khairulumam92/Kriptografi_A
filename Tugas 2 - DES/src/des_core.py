@@ -1,11 +1,24 @@
 """
-DES core implementation (single 64-bit block).
+Implementasi inti algoritma DES (Data Encryption Standard) — manual.
+
+DES standar:
+  - Blok data 64-bit
+  - Kunci input 64-bit (56-bit efektif setelah PC-1)
+  - 16 ronde jaringan Feistel
+
+Fungsi utama diekspos dengan nama yang sesuai materi kuliah kriptografi.
 """
 
 from __future__ import annotations
 
 import re
-from typing import List
+from typing import List, Tuple
+
+from . import des_verbose as verbose_out
+
+# ---------------------------------------------------------------------------
+# Tabel permutasi dan S-Box standar FIPS-46 (DES)
+# ---------------------------------------------------------------------------
 
 IP = [
     58, 50, 42, 34, 26, 18, 10, 2,
@@ -129,23 +142,52 @@ S_BOX = [
 HEX_64_RE = re.compile(r"^[0-9a-fA-F]{16}$")
 
 
-def _permute(bits: str, table: List[int]) -> str:
+# ---------------------------------------------------------------------------
+# Utilitas bit / hex
+# ---------------------------------------------------------------------------
+
+def permute(bits: str, table: List[int]) -> str:
+    """Permutasi generik: ambil bit pada posisi tabel (1-indeks)."""
     return "".join(bits[pos - 1] for pos in table)
 
 
-def _xor(a: str, b: str) -> str:
+def initial_permutation(bits64: str) -> str:
+    """Initial Permutation (IP) — mengacak 64-bit masukan sebelum ronde Feistel."""
+    return permute(bits64, IP)
+
+
+def final_permutation(bits64: str) -> str:
+    """Final Permutation (FP) — invers IP setelah 16 ronde."""
+    return permute(bits64, FP)
+
+
+def expansion_permutation(bits32: str) -> str:
+    """Expansion Permutation (E) — memperluas 32-bit menjadi 48-bit."""
+    return permute(bits32, E)
+
+
+def pbox_permutation(bits32: str) -> str:
+    """P-Box Permutation (P) — menyebarkan bit hasil S-Box."""
+    return permute(bits32, P)
+
+
+def xor_bits(a: str, b: str) -> str:
+    """XOR bitwise dua string biner dengan panjang sama."""
     return "".join("1" if x != y else "0" for x, y in zip(a, b))
 
 
-def _left_rotate(bits: str, shift: int) -> str:
+def left_shift(bits: str, shift: int) -> str:
+    """Left circular shift pada string biner."""
     return bits[shift:] + bits[:shift]
 
 
 def hex_to_bits(hex_str: str) -> str:
+    """Konversi string heksadesimal ke biner (tanpa prefix 0b)."""
     return bin(int(hex_str, 16))[2:].zfill(len(hex_str) * 4)
 
 
 def bits_to_hex(bits: str) -> str:
+    """Konversi biner ke heksadesimal huruf besar."""
     return format(int(bits, 2), f"0{len(bits) // 4}X")
 
 
@@ -155,81 +197,140 @@ def validate_hex_64(value: str, label: str) -> str:
     return value.upper()
 
 
-def _sbox_substitute(bits48: str) -> str:
-    chunks = [bits48[i:i + 6] for i in range(0, 48, 6)]
+# ---------------------------------------------------------------------------
+# S-Box, fungsi f, key schedule
+# ---------------------------------------------------------------------------
+
+def sbox_substitute(bits48: str) -> str:
+    """
+  S-Box Substitution — 48-bit dibagi 8 x 6-bit.
+  Bit luar (b1, b6) = baris; bit tengah (b2..b5) = kolom.
+  Keluaran: 8 x 4-bit = 32-bit.
+    """
+    chunks = [bits48[i : i + 6] for i in range(0, 48, 6)]
     out = []
     for i, chunk in enumerate(chunks):
-        row = int(chunk[0] + chunk[-1], 2)
+        row = int(chunk[0] + chunk[5], 2)
         col = int(chunk[1:5], 2)
         out.append(format(S_BOX[i][row][col], "04b"))
     return "".join(out)
 
 
-def _f_function(right32: str, subkey48: str) -> str:
-    expanded = _permute(right32, E)
-    mixed = _xor(expanded, subkey48)
-    substituted = _sbox_substitute(mixed)
-    return _permute(substituted, P)
+def f_function(right32: str, subkey48: str) -> Tuple[str, str, str, str, str]:
+    """
+    Fungsi f pada ronde Feistel: E -> XOR K -> S-Box -> P.
+    Mengembalikan (expanded, xored, sbox_out, pbox_out) untuk pelacakan verbose.
+    """
+    expanded = expansion_permutation(right32)
+    xored = xor_bits(expanded, subkey48)
+    substituted = sbox_substitute(xored)
+    permuted = pbox_permutation(substituted)
+    return expanded, xored, substituted, permuted
 
 
-def generate_subkeys(key_hex_64: str) -> List[str]:
+def key_schedule(key_hex_64: str, verbose: bool = False) -> List[str]:
+    """
+    Key Schedule — menghasilkan 16 subkey 48-bit dari kunci 64-bit.
+    Tahapan: PC-1 -> bagi C0|D0 -> left shift per ronde -> PC-2.
+    """
     key_hex_64 = validate_hex_64(key_hex_64, "Key")
-    key56 = _permute(hex_to_bits(key_hex_64), PC1)
+    key56 = permute(hex_to_bits(key_hex_64), PC1)
     c, d = key56[:28], key56[28:]
-    subkeys = []
-    for shift in SHIFT_SCHEDULE:
-        c = _left_rotate(c, shift)
-        d = _left_rotate(d, shift)
-        subkeys.append(_permute(c + d, PC2))
+    subkeys: List[str] = []
+
+    if verbose:
+        verbose_out.separator("KEY SCHEDULE")
+        verbose_out.print_bits_block("Kunci 64-bit (masukan)", hex_to_bits(key_hex_64), indent=2)
+        verbose_out.print_bits_block("Setelah PC-1 (56-bit efektif)", key56, indent=2)
+        verbose_out.print_bits_block("C0", c, indent=2)
+        verbose_out.print_bits_block("D0", d, indent=2)
+
+    for rnd, shift in enumerate(SHIFT_SCHEDULE, start=1):
+        c = left_shift(c, shift)
+        d = left_shift(d, shift)
+        subkey = permute(c + d, PC2)
+        subkeys.append(subkey)
+        if verbose:
+            print(f"\n  Ronde {rnd:02d}: shift={shift}")
+            verbose_out.print_bits_block(f"C{rnd}", c, indent=4)
+            verbose_out.print_bits_block(f"D{rnd}", d, indent=4)
+            verbose_out.print_bits_block(f"K{rnd} (subkey)", subkey, indent=4)
+
     return subkeys
 
 
-def _des_block_bits(data64_bits: str, subkeys: List[str], verbose: bool = False) -> str:
-    permuted = _permute(data64_bits, IP)
+# Alias nama fungsi sesuai spesifikasi tugas
+generate_subkeys = key_schedule
+
+
+def _des_block_bits(
+    data64_bits: str,
+    subkeys: List[str],
+    verbose: bool = False,
+    decrypt_mode: bool = False,
+) -> str:
+    """Proses satu blok 64-bit (enkripsi atau dekripsi)."""
+    if verbose:
+        mode_label = "DEKRIPSI" if decrypt_mode else "ENKRIPSI"
+        verbose_out.separator(f"PROSES DES — {mode_label} (SATU BLOK 64-bit)")
+
+    permuted = initial_permutation(data64_bits)
     left, right = permuted[:32], permuted[32:]
 
     if verbose:
-        print(f"IP      : {bits_to_hex(permuted)}")
-        print(f"L0      : {bits_to_hex(left)}")
-        print(f"R0      : {bits_to_hex(right)}")
+        verbose_out.print_bits_block("Blok masukan (64-bit)", data64_bits, indent=2)
+        verbose_out.separator("INITIAL PERMUTATION (IP)")
+        verbose_out.print_bits_block("Hasil IP", permuted, indent=2)
+        verbose_out.print_bits_block("L0", left, indent=2)
+        verbose_out.print_bits_block("R0", right, indent=2)
 
     for index, subkey in enumerate(subkeys, start=1):
-        left, right = right, _xor(left, _f_function(right, subkey))
+        expanded, xored, sbox32, f_out = f_function(right, subkey)
+        new_right = xor_bits(left, f_out)
+        new_left = right
+
         if verbose:
-            print(
-                f"Round {index:02d}: "
-                f"K={bits_to_hex(subkey)} "
-                f"L={bits_to_hex(left)} "
-                f"R={bits_to_hex(right)}"
+            verbose_out.print_feistel_step(
+                index,
+                right,
+                subkey,
+                expanded,
+                xored,
+                sbox32,
+                f_out,
+                left,
+                new_left,
+                new_right,
             )
 
+        left, right = new_left, new_right
+
     pre_output = right + left
-    final_bits = _permute(pre_output, FP)
+    final_bits = final_permutation(pre_output)
 
     if verbose:
-        print(f"R16L16  : {bits_to_hex(pre_output)}")
-        print(f"FP      : {bits_to_hex(final_bits)}")
+        verbose_out.separator("FINAL SWAP & FINAL PERMUTATION")
+        verbose_out.print_bits_block("R16 || L16 (sebelum FP)", pre_output, indent=2)
+        verbose_out.print_bits_block("Ciphertext / plaintext blok (setelah FP)", final_bits, indent=2)
 
     return final_bits
 
 
 def des_encrypt_block(block64: str, key64: str, verbose: bool = False) -> str:
-    """
-    Encrypt one DES block.
-
-    block64 and key64 must be 16-char hex values.
-    """
+    """DES Encrypt — satu blok 16 karakter hex."""
     block64 = validate_hex_64(block64, "Plaintext block")
-    subkeys = generate_subkeys(key64)
-    return bits_to_hex(_des_block_bits(hex_to_bits(block64), subkeys, verbose))
+    subkeys = key_schedule(key64, verbose=verbose)
+    return bits_to_hex(_des_block_bits(hex_to_bits(block64), subkeys, verbose, False))
 
 
 def des_decrypt_block(block64: str, key64: str, verbose: bool = False) -> str:
-    """
-    Decrypt one DES block.
-
-    block64 and key64 must be 16-char hex values.
-    """
+    """DES Decrypt — subkey dipakai terbalik (K16..K1)."""
     block64 = validate_hex_64(block64, "Ciphertext block")
-    subkeys = list(reversed(generate_subkeys(key64)))
-    return bits_to_hex(_des_block_bits(hex_to_bits(block64), subkeys, verbose))
+    subkeys_forward = key_schedule(key64, verbose=False)
+    subkeys = list(reversed(subkeys_forward))
+    if verbose:
+        verbose_out.separator("DEKRIPSI — Urutan Subkey Terbalik (K16 .. K1)")
+        for i, sk in enumerate(subkeys, start=1):
+            orig = 17 - i
+            print(f"  Langkah {i:02d} memakai K{orig:02d}: HEX={bits_to_hex(sk)}")
+    return bits_to_hex(_des_block_bits(hex_to_bits(block64), subkeys, verbose, True))

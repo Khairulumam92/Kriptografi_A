@@ -26,6 +26,19 @@ class TestDES(unittest.TestCase):
         recovered = decrypt_data(ciphertext, key, input_format="text", verbose=False)
         self.assertEqual(recovered, plaintext)
 
+    def test_assignment_example(self):
+        plaintext = "KHAIRULUMAM"
+        key = "KAMPUSUMM"
+        expected_cipher = "D5B57564844B76465927F24F34ACC6E6"
+        ciphertext = encrypt_data(
+            plaintext, key, input_format="text", verbose=False, key_format="text"
+        )
+        self.assertEqual(ciphertext, expected_cipher)
+        recovered = decrypt_data(
+            ciphertext, key, input_format="text", verbose=False, key_format="text"
+        )
+        self.assertEqual(recovered, plaintext)
+
     def test_invalid_input(self):
         with self.assertRaises(ValueError):
             des_encrypt_block("123", "133457799BBCDFF1")
