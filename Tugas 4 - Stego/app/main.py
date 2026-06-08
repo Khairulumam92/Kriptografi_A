@@ -65,7 +65,7 @@ def api_encode():
         with open(stego_path, "wb") as f:
             f.write(result["stego_bytes"])
 
-        diff_bytes, changed_pixels, total_pixels = compare_images(
+        diff_bytes, changed_channels, total_pixels = compare_images(
             original_bytes, result["stego_bytes"]
         )
         mse = calculate_mse(original_bytes, result["stego_bytes"])
@@ -81,7 +81,7 @@ def api_encode():
                 "stats": {
                     "psnr_db": psnr if psnr != float("inf") else "-",
                     "mse": round(mse, 6),
-                    "changed_pixels": changed_pixels,
+                    "changed_pixels": changed_channels,
                     "total_pixels": total_pixels,
                     "capacity_used_pct": result["capacity_used_pct"],
                     "encode_time_ms": result["encode_time_ms"],
@@ -104,6 +104,9 @@ def api_decode():
 
     if not file or file.filename == "":
         return jsonify({"success": False, "error": "File tidak valid."}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "error": "Format gambar tidak didukung. Gunakan PNG, JPG, BMP, atau GIF."}), 400
 
     try:
         image_bytes = file.read()

@@ -10,7 +10,10 @@ def lsb_encode(image_bytes: bytes, message: str) -> dict:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     pixels = img.load()
     w, h = img.size
-    max_capacity = (w * h * 3) - 32
+    max_capacity = max(0, (w * h * 3) - 32)
+
+    if max_capacity == 0:
+        raise ValueError("Gambar terlalu kecil untuk menyimpan pesan. Gunakan gambar minimal 4x3 pixel.")
 
     msg_bytes = message.encode("utf-8")
     msg_len = len(msg_bytes)
@@ -52,7 +55,7 @@ def lsb_encode(image_bytes: bytes, message: str) -> dict:
         "stego_bytes": buf.getvalue(),
         "capacity_total_bits": max_capacity,
         "capacity_used_bits": len(bits),
-        "capacity_used_pct": round(len(bits) / max_capacity * 100, 4),
+        "capacity_used_pct": round(len(bits) / (w * h * 3) * 100, 4),
         "encode_time_ms": round((t_end - t_start) * 1000, 2),
     }
 
@@ -90,7 +93,7 @@ def lsb_decode(image_bytes: bytes) -> dict:
     }
 
 
-def compare_images(original_bytes: bytes, stego_bytes: bytes) -> bytes:
+def compare_images(original_bytes: bytes, stego_bytes: bytes) -> tuple[bytes, int, int]:
     orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
     stego = Image.open(io.BytesIO(stego_bytes)).convert("RGB")
 
@@ -103,7 +106,7 @@ def compare_images(original_bytes: bytes, stego_bytes: bytes) -> bytes:
     diff_px = diff.load()
     w, h = orig.size
 
-    changed = 0
+    changed_channels = 0
     total = w * h * 3
 
     for y in range(h):
@@ -114,13 +117,13 @@ def compare_images(original_bytes: bytes, stego_bytes: bytes) -> bytes:
             dg = abs(go - gs)
             db = abs(bo - bs)
             if dr > 0 or dg > 0 or db > 0:
-                changed += 1
+                changed_channels += 1
             diff_px[x, y] = (dr * 255, dg * 255, db * 255)
 
     buf = io.BytesIO()
     diff.save(buf, format="PNG")
 
-    return buf.getvalue(), changed, total
+    return buf.getvalue(), changed_channels, total
 
 
 def calculate_mse(original_bytes: bytes, stego_bytes: bytes) -> float:
