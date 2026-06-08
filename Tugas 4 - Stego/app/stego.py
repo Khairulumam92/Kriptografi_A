@@ -48,7 +48,7 @@ def lsb_encode(image_bytes: bytes, message: str) -> dict:
             break
 
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf, format="PNG", optimize=True)
     t_end = time.perf_counter()
 
     return {
