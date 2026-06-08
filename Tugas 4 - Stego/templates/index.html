@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steganografi LSB - Tugas 4 Kriptografi</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Steganografi Citra Digital</h1>
+        <p>Metode Least Significant Bit (LSB)</p>
+    </header>
+
+    <main>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="encode">Sisipkan Pesan</button>
+            <button class="tab-btn" data-tab="decode">Ekstrak Pesan</button>
+        </div>
+
+        <!-- ENCODE TAB -->
+        <section id="tab-encode" class="tab-content active">
+            <div class="encode-grid">
+                <div class="card upload-card">
+                    <h3>1. Unggah Gambar</h3>
+                    <div class="drop-zone" id="encode-dropzone">
+                        <div class="drop-icon">&#128247;</div>
+                        <p>Seret & lepas gambar di sini</p>
+                        <span>atau</span>
+                        <label class="btn-outline" for="encode-file">Pilih File</label>
+                        <input type="file" id="encode-file" accept="image/png,image/jpeg,image/bmp,image/gif" hidden>
+                        <p class="file-name" id="encode-filename"></p>
+                    </div>
+                    <p class="hint">Format: PNG, JPG, BMP, GIF (maks 16 MB)</p>
+                </div>
+
+                <div class="card message-card">
+                    <h3>2. Masukkan Pesan</h3>
+                    <textarea id="encode-message" placeholder="Tulis pesan rahasia yang ingin disisipkan ke dalam gambar..." maxlength="50000"></textarea>
+                    <div class="char-counter"><span id="char-count">0</span> karakter</div>
+                    <button class="btn-primary" id="encode-btn" disabled>Proses Penyisipan</button>
+                    <div class="loader" id="encode-loader"></div>
+                    <div class="error-msg" id="encode-error"></div>
+                </div>
+            </div>
+
+            <!-- RESULT SECTION -->
+            <div class="result-section" id="result-section" style="display:none;">
+                <hr>
+
+                <div class="result-header">
+                    <h2>Hasil Penyisipan</h2>
+                    <a class="btn-download" id="download-btn" href="#" download>Unduh Stego Image</a>
+                </div>
+
+                <div class="img-compare">
+                    <div class="compare-container">
+                        <img id="orig-img" src="" alt="Gambar Asli">
+                        <img id="stego-img" src="" alt="Stego Image">
+                        <div class="compare-slider">
+                            <input type="range" id="compare-range" min="0" max="100" value="50">
+                            <div class="slider-line"></div>
+                        </div>
+                    </div>
+                    <div class="compare-labels">
+                        <span>Gambar Asli</span>
+                        <span>Stego Image</span>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">PSNR</span>
+                        <span class="stat-value" id="stat-psnr">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">MSE</span>
+                        <span class="stat-value" id="stat-mse">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Pixel Berubah</span>
+                        <span class="stat-value" id="stat-changed">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Kapasitas Terpakai</span>
+                        <span class="stat-value" id="stat-capacity">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Waktu Encode</span>
+                        <span class="stat-value" id="stat-time">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Panjang Pesan</span>
+                        <span class="stat-value" id="stat-chars">-</span>
+                    </div>
+                </div>
+
+                <details class="diff-section">
+                    <summary>Lihat Peta Perbedaan Pixel</summary>
+                    <img id="diff-img" src="" alt="Difference Map" class="diff-image">
+                    <p class="hint">Pixel putih = LSB tidak berubah. Pixel berwarna = LSB berubah (diperbesar 255x agar terlihat).</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- DECODE TAB -->
+        <section id="tab-decode" class="tab-content">
+            <div class="card">
+                <h3>1. Unggah Stego Image</h3>
+                <div class="drop-zone" id="decode-dropzone">
+                    <div class="drop-icon">&#128270;</div>
+                    <p>Seret & lepas stego image di sini</p>
+                    <span>atau</span>
+                    <label class="btn-outline" for="decode-file">Pilih File</label>
+                    <input type="file" id="decode-file" accept="image/png,image/jpeg,image/bmp,image/gif" hidden>
+                    <p class="file-name" id="decode-filename"></p>
+                </div>
+                <button class="btn-primary" id="decode-btn" disabled>Ekstrak Pesan</button>
+                <div class="loader" id="decode-loader"></div>
+                <div class="error-msg" id="decode-error"></div>
+            </div>
+
+            <div class="result-section" id="decode-result" style="display:none;">
+                <hr>
+                <h2>Pesan Hasil Ekstraksi</h2>
+                <div class="card">
+                    <div class="decode-info">
+                        <span id="decode-chars">0 karakter</span> &middot;
+                        <span id="decode-time">0 ms</span>
+                    </div>
+                    <div class="message-box" id="decoded-message"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Tugas 4 Kriptografi &mdash; Steganografi LSB &mdash; Informatika ITSNU Kalimantan</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
