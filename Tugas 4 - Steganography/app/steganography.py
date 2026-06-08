@@ -52,7 +52,7 @@ def lsb_encode(image_bytes: bytes, message: str) -> dict:
     t_end = time.perf_counter()
 
     return {
-        "stego_bytes": buf.getvalue(),
+        "steganography_bytes": buf.getvalue(),
         "capacity_total_bits": max_capacity,
         "capacity_used_bits": len(bits),
         "capacity_used_pct": round(len(bits) / (w * h * 3) * 100, 4),
@@ -115,15 +115,15 @@ def lsb_decode(image_bytes: bytes) -> dict:
     }
 
 
-def compare_images(original_bytes: bytes, stego_bytes: bytes) -> tuple[bytes, int, int]:
+def compare_images(original_bytes: bytes, steganography_bytes: bytes) -> tuple[bytes, int, int]:
     orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
-    stego = Image.open(io.BytesIO(stego_bytes)).convert("RGB")
+    steganography = Image.open(io.BytesIO(steganography_bytes)).convert("RGB")
 
-    if orig.size != stego.size:
-        stego = stego.resize(orig.size)
+    if orig.size != steganography.size:
+        steganography = steganography.resize(orig.size)
 
     orig_px = orig.load()
-    stego_px = stego.load()
+    steganography_px = steganography.load()
     diff = Image.new("RGB", orig.size)
     diff_px = diff.load()
     w, h = orig.size
@@ -134,7 +134,7 @@ def compare_images(original_bytes: bytes, stego_bytes: bytes) -> tuple[bytes, in
     for y in range(h):
         for x in range(w):
             ro, go, bo = orig_px[x, y]
-            rs, gs, bs = stego_px[x, y]
+            rs, gs, bs = steganography_px[x, y]
             dr = abs(ro - rs)
             dg = abs(go - gs)
             db = abs(bo - bs)
@@ -148,15 +148,15 @@ def compare_images(original_bytes: bytes, stego_bytes: bytes) -> tuple[bytes, in
     return buf.getvalue(), changed_channels, total
 
 
-def calculate_mse(original_bytes: bytes, stego_bytes: bytes) -> float:
+def calculate_mse(original_bytes: bytes, steganography_bytes: bytes) -> float:
     orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
-    stego = Image.open(io.BytesIO(stego_bytes)).convert("RGB")
+    steganography = Image.open(io.BytesIO(steganography_bytes)).convert("RGB")
 
-    if orig.size != stego.size:
-        stego = stego.resize(orig.size)
+    if orig.size != steganography.size:
+        steganography = steganography.resize(orig.size)
 
     orig_px = orig.load()
-    stego_px = stego.load()
+    steganography_px = steganography.load()
     w, h = orig.size
 
     total = 0
@@ -164,7 +164,7 @@ def calculate_mse(original_bytes: bytes, stego_bytes: bytes) -> float:
     for y in range(h):
         for x in range(w):
             ro, go, bo = orig_px[x, y]
-            rs, gs, bs = stego_px[x, y]
+            rs, gs, bs = steganography_px[x, y]
             total += (ro - rs) ** 2 + (go - gs) ** 2 + (bo - bs) ** 2
 
     mse = total / count

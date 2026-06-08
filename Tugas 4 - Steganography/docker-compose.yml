@@ -3,7 +3,7 @@ version: "3.9"
 services:
   flask-app:
     build: .
-    container_name: stego-flask
+    container_name: steganography-flask
     volumes:
       - ./uploads:/app/uploads
       - ./results:/app/results
@@ -17,7 +17,7 @@ services:
 
   nginx:
     image: nginx:stable-alpine
-    container_name: stego-nginx
+    container_name: steganography-nginx
     ports:
       - "8085:80"
     volumes:

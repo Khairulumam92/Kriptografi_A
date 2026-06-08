@@ -28,7 +28,7 @@
 
     var compareRange = document.getElementById("compare-range");
     var compareHandle = document.getElementById("compare-handle");
-    var stegoImg = document.getElementById("stego-img");
+    var steganographyImg = document.getElementById("steganography-img");
 
     var encodeFileSelected = false;
     var decodeFileSelected = false;
@@ -136,7 +136,7 @@
     // ── COMPARISON SLIDER ──
     function updateClip(val) {
         var pct = val + "%";
-        stegoImg.style.clipPath = "inset(0 0 0 " + pct + ")";
+        steganographyImg.style.clipPath = "inset(0 0 0 " + pct + ")";
         compareHandle.style.left = pct;
     }
 
@@ -187,7 +187,7 @@
 
     function showEncodeResult(data) {
         document.getElementById("orig-img").src = "data:image/png;base64," + data.original_b64;
-        document.getElementById("stego-img").src = "data:image/png;base64," + data.stego_b64;
+        document.getElementById("steganography-img").src = "data:image/png;base64," + data.steganography_b64;
         document.getElementById("diff-img").src = "data:image/png;base64," + data.diff_b64;
 
         document.getElementById("stat-psnr").textContent =
@@ -204,7 +204,7 @@
         }
 
         var dl = document.getElementById("download-btn");
-        dl.href = "/api/download/" + data.stego_id;
+        dl.href = "/api/download/" + data.steganography_id;
 
         compareRange.value = 50;
         updateClip(50);

@@ -4,7 +4,7 @@ import uuid
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 
-from app.stego import (
+from app.steganography import (
     lsb_encode,
     lsb_decode,
     compare_images,
@@ -60,24 +60,24 @@ def api_encode():
         original_bytes = file.read()
         result = lsb_encode(original_bytes, message)
 
-        stego_id = uuid.uuid4().hex[:12]
-        stego_path = os.path.join(RESULTS_DIR, f"{stego_id}.png")
-        with open(stego_path, "wb") as f:
-            f.write(result["stego_bytes"])
+        steganography_id = uuid.uuid4().hex[:12]
+        steganography_path = os.path.join(RESULTS_DIR, f"{steganography_id}.png")
+        with open(steganography_path, "wb") as f:
+            f.write(result["steganography_bytes"])
 
         diff_bytes, changed_channels, total_pixels = compare_images(
-            original_bytes, result["stego_bytes"]
+            original_bytes, result["steganography_bytes"]
         )
-        mse = calculate_mse(original_bytes, result["stego_bytes"])
+        mse = calculate_mse(original_bytes, result["steganography_bytes"])
         psnr = calculate_psnr(mse)
 
         return jsonify(
             {
                 "success": True,
                 "original_b64": image_to_base64(original_bytes),
-                "stego_b64": image_to_base64(result["stego_bytes"]),
+                "steganography_b64": image_to_base64(result["steganography_bytes"]),
                 "diff_b64": image_to_base64(diff_bytes),
-                "stego_id": stego_id,
+                "steganography_id": steganography_id,
                 "stats": {
                     "psnr_db": psnr if psnr != float("inf") else "-",
                     "mse": round(mse, 6),
@@ -133,10 +133,10 @@ def api_decode():
         return jsonify({"success": False, "error": f"Gagal memproses: {str(e)}"}), 500
 
 
-@app.route("/api/download/<stego_id>")
-def api_download(stego_id):
-    safe_id = secure_filename(stego_id)
+@app.route("/api/download/<steganography_id>")
+def api_download(steganography_id):
+    safe_id = secure_filename(steganography_id)
     filepath = os.path.join(RESULTS_DIR, f"{safe_id}.png")
     if not os.path.exists(filepath):
         return jsonify({"success": False, "error": "File tidak ditemukan."}), 404
-    return send_file(filepath, as_attachment=True, download_name="stego_image.png", mimetype="image/png")
+    return send_file(filepath, as_attachment=True, download_name="steganography_image.png", mimetype="image/png")

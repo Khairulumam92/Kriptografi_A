@@ -515,7 +515,7 @@ textarea:focus {
     pointer-events: none;
 }
 
-#stego-img {
+#steganography-img {
     clip-path: inset(0 0 0 50%);
     transition: clip-path 50ms linear;
 }
@@ -587,7 +587,7 @@ textarea:focus {
     border: 1px solid var(--border);
 }
 
-.tag-stego {
+.tag-steganography {
     color: var(--accent);
     background: var(--accent-dim);
     border: 1px solid rgba(0, 212, 170, 0.25);
