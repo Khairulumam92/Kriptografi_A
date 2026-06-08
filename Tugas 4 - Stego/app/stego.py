@@ -60,30 +60,52 @@ def lsb_encode(image_bytes: bytes, message: str) -> dict:
     }
 
 
+def _read_bits(pixels, w, h, count):
+    bits = []
+    for y in range(h):
+        for x in range(w):
+            r, g, b = pixels[x, y]
+            bits.append(r & 1)
+            bits.append(g & 1)
+            bits.append(b & 1)
+            if len(bits) >= count:
+                return bits[:count]
+    return bits
+
+
+def _bits_to_int(bits):
+    val = 0
+    for b in bits:
+        val = (val << 1) | b
+    return val
+
+
+def _bits_to_bytes(bits):
+    return bytes(
+        _bits_to_int(bits[i : i + 8]) for i in range(0, len(bits), 8)
+    )
+
+
 def lsb_decode(image_bytes: bytes) -> dict:
     t_start = time.perf_counter()
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     pixels = img.load()
     w, h = img.size
 
-    bits = []
-    for y in range(h):
-        for x in range(w):
-            r, g, b = pixels[x, y]
-            bits.append(str(r & 1))
-            bits.append(str(g & 1))
-            bits.append(str(b & 1))
+    total_bits_available = w * h * 3
+    if total_bits_available < 32:
+        raise ValueError("Gambar terlalu kecil untuk mengandung pesan.")
 
-    bit_str = "".join(bits)
-    length_bits = bit_str[:32]
-    msg_len = int(length_bits, 2)
+    length_bits = _read_bits(pixels, w, h, 32)
+    msg_len = _bits_to_int(length_bits)
 
-    if msg_len < 0 or msg_len > (w * h * 3) // 8:
+    if msg_len < 0 or msg_len > total_bits_available // 8:
         raise ValueError("Gambar tidak mengandung pesan tersembunyi atau format tidak dikenali.")
 
-    msg_bits = bit_str[32 : 32 + msg_len * 8]
-    msg_bytes = bytes(int(msg_bits[i : i + 8], 2) for i in range(0, len(msg_bits), 8))
-    message = msg_bytes.decode("utf-8")
+    needed_bits = 32 + msg_len * 8
+    all_bits = _read_bits(pixels, w, h, needed_bits)
+    msg_bits = all_bits[32:]
+    message = _bits_to_bytes(msg_bits).decode("utf-8")
     t_end = time.perf_counter()
 
     return {
